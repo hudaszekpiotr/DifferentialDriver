@@ -3,6 +3,7 @@ import pigpio  # http://abyz.co.uk/rpi/pigpio/python.html
 import rclpy
 from rclpy.node import Node
 from interfaces.msg import WheelsVelocities
+from sensor_msgs.msg import Imu
 import math
 
 
@@ -15,8 +16,8 @@ class ImuNode(Node):
 
     def publish_imu_callback(self):
         imu = Imu()
-        imu.header.frame_id
-        imu.header.stamp
+        imu.header.frame_id = "imu"
+        imu.header.stamp = self.get_clock().now().to_msg()
 
         imu.orientation
         imu.orientation_covariance

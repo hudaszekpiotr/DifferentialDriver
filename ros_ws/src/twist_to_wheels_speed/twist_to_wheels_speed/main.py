@@ -15,8 +15,8 @@ class TwistToWheelsSpeed(Node):
 
     def cmd_vel_callback(self, msg):
         wheels_velocities = WheelsVelocities()
-        wheels_velocities.right_wheel = msg.linear[0] + (msg.angular[2] * self.track_width) / 2
-        wheels_velocities.left_wheel = msg.linear[0] - (msg.angular[2] * self.track_width) / 2
+        wheels_velocities.right_wheel = msg.linear.x + (msg.angular.z * self.track_width) / 2
+        wheels_velocities.left_wheel = msg.linear.x - (msg.angular.z * self.track_width) / 2
         self.requested_velocity_publisher.publish(wheels_velocities)
 
 
