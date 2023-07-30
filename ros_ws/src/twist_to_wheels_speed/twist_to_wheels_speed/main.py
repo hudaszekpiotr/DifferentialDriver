@@ -11,12 +11,13 @@ class TwistToWheelsSpeed(Node):
         self.subscription = self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_callback, 10)
         self.subscription  # prevent unused variable warning
         self.requested_velocity_publisher = self.create_publisher(WheelsVelocities, 'requested_velocity', 10)
+        self.track_width = 0.122
 
     def cmd_vel_callback(self, msg):
-        msg = WheelsVelocities()
-        #msg.right_wheel =
-        #msg.left_wheel =
-        self.requested_velocity_publisher.publish(msg)
+        wheels_velocities = WheelsVelocities()
+        wheels_velocities.right_wheel = msg.linear[0] + (msg.angular[2] * self.track_width) / 2
+        wheels_velocities.left_wheel = msg.linear[0] - (msg.angular[2] * self.track_width) / 2
+        self.requested_velocity_publisher.publish(wheels_velocities)
 
 
 def main(args=None):
