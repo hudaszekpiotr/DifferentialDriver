@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.duration import Duration
 
 from nav_msgs.msg import Odometry
 from interfaces.msg import WheelsVelocities
@@ -7,6 +8,7 @@ from tf_transformations import euler_from_quaternion, quaternion_from_euler
 from geometry_msgs.msg import PoseWithCovariance
 from geometry_msgs.msg import TwistWithCovariance
 from geometry_msgs.msg import Quaternion
+import math
 
 class OdometryNode(Node):
 
@@ -44,9 +46,10 @@ class OdometryNode(Node):
         self.yaw_velocity = (msg.right_wheel - msg.left_wheel) / self.track_width
 
         delta_time = self.get_clock().now() - self.t_0
-        delta_yaw = self.yaw_velocity * delta_time
-        self.x = self.x + self.x_velocity * delta_time * cos(self.yaw_angle + delta_yaw / 2)
-        self.y = self.y + self.x_velocity * delta_time * sin(self.yaw_angle + delta_yaw / 2)
+        delta_time_sec = delta_time.nanoseconds / 10**9
+        delta_yaw = self.yaw_velocity * delta_time_sec
+        self.x = self.x + self.x_velocity * delta_time_sec * math.cos(self.yaw_angle + delta_yaw / 2)
+        self.y = self.y + self.x_velocity * delta_time_sec * math.sin(self.yaw_angle + delta_yaw / 2)
         self.yaw_angle = self.yaw_angle + delta_yaw
 
     def publish_odom_callback(self):
