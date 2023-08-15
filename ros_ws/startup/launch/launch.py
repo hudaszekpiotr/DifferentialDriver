@@ -35,6 +35,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
     use_composition = LaunchConfiguration('use_composition')
+    slam_mode = LaunchConfiguration('slam_mode')
     container_name = LaunchConfiguration('container_name')
     container_name_full = (namespace, '/', container_name)
     use_respawn = LaunchConfiguration('use_respawn')
@@ -46,7 +47,9 @@ def generate_launch_description():
                        'behavior_server',
                        'bt_navigator',
                        'waypoint_follower',
-                       'velocity_smoother']
+                       'velocity_smoother',
+                       'map_server',
+                       'amcl']
 
 
     stdout_linebuf_envvar = SetEnvironmentVariable(
@@ -87,6 +90,30 @@ def generate_launch_description():
         'ekf.yaml'
     )
 
+    twist_mux_config = os.path.join(
+        get_package_share_directory('startup'),
+        'config',
+        'twist_mux.yaml'
+    )
+
+    twist_keyboard_config = os.path.join(
+        get_package_share_directory('startup'),
+        'config',
+        'twist_keyboard.yaml'
+    )
+
+    joy_config = os.path.join(
+        get_package_share_directory('startup'),
+        'config',
+        'joy.yaml'
+    )
+
+    twist_joy_config = os.path.join(
+        get_package_share_directory('startup'),
+        'config',
+        'twist_joy.yaml'
+    )
+
     declare_autostart_cmd = DeclareLaunchArgument(
         'autostart', default_value='true',
         description='Automatically startup the nav2 stack')
@@ -94,6 +121,10 @@ def generate_launch_description():
     declare_use_composition_cmd = DeclareLaunchArgument(
         'use_composition', default_value='False',
         description='Use composed bringup if True')
+
+    declare_slam_mode_cmd = DeclareLaunchArgument(
+        'slam_mode', default_value='False',
+        description='Use SLAM')
 
     declare_container_name_cmd = DeclareLaunchArgument(
         'container_name', default_value='nav2_container',
@@ -176,6 +207,26 @@ def generate_launch_description():
                 arguments=['--ros-args', '--log-level', log_level],
                 remappings= [('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', 'cmd_vel')]),
             Node(
+                package='nav2_map_server',
+                executable='map_server',
+                name='map_server',
+                output='screen',
+                parameters=[nav2_config,
+                            {'use_sim_time': use_sim_time}],
+                arguments=['--ros-args'],
+                condition=IfCondition(PythonExpression(['not ', slam_mode]))
+            ),
+            Node(
+                package='nav2_amcl',
+                executable='amcl',
+                name='amcl',
+                output='screen',
+                parameters=[nav2_config,
+                            {'use_sim_time': use_sim_time}],
+                arguments=['--ros-args'],
+                condition=IfCondition(PythonExpression(['not ', slam_mode]))
+            ),
+            Node(
                 package='nav2_lifecycle_manager',
                 executable='lifecycle_manager',
                 name='lifecycle_manager_navigation',
@@ -230,6 +281,26 @@ def generate_launch_description():
                         name='velocity_smoother',
                         parameters=[nav2_config],
                         remappings=[('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', 'cmd_vel')]),
+                    Node(
+                        package='nav2_map_server',
+                        executable='map_server',
+                        name='map_server',
+                        output='screen',
+                        parameters=[nav2_config,
+                                    {'use_sim_time': use_sim_time}],
+                        arguments=['--ros-args'],
+                        condition=IfCondition(PythonExpression(['not ', slam_mode]))
+                    ),
+                    Node(
+                        package='nav2_amcl',
+                        executable='amcl',
+                        name='amcl',
+                        output='screen',
+                        parameters=[nav2_config,
+                                    {'use_sim_time': use_sim_time}],
+                        arguments=['--ros-args'],
+                        condition=IfCondition(PythonExpression(['not ', slam_mode]))
+                    ),
                     ComposableNode(
                         package='nav2_lifecycle_manager',
                         plugin='nav2_lifecycle_manager::LifecycleManager',
@@ -289,8 +360,38 @@ def generate_launch_description():
         package='slam_toolbox',
         executable='async_slam_toolbox_node',
         name='slam_toolbox',
-        output='screen')
-    
+        output='screen',
+        condition=IfCondition(slam_mode),
+    )
+    twist_mux_node = Node(
+        package='twist_mux',
+        executable='twist_mux',
+        output='screen',
+        remappings={('/cmd_vel_out', 'cmd_vel')},
+        parameters=[twist_mux_config]
+    )
+    teleop_twist_keyboard_node = Node(
+        package='teleop_twist_keyboard',
+        executable='teleop_twist_keyboard',
+        name='twist_keyboard_node',
+        output='screen',
+        prefix='xterm -e',
+        remappings=[('cmd_vel', 'cmd_vel_keyboard')],
+        parameters=[twist_keyboard_config]
+    )
+    joy_node = Node(
+        package='joy',
+        name='joy_node',
+        executable='joy_node',
+        parameters=[joy_config],
+    )
+    teleop_twist_joy_node = Node(
+        package='teleop_twist_joy',
+        name='TeleopTwistJoy',
+        executable='teleop_node',
+        remappings=[('cmd_vel', 'cmd_vel_joy')],
+        parameters=[twist_joy_config],
+    )
 
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
@@ -300,6 +401,7 @@ def generate_launch_description():
     ld.add_action(declare_use_sim_time_cmd)
     ld.add_action(declare_autostart_cmd)
     ld.add_action(declare_use_composition_cmd)
+    ld.add_action(declare_slam_mode_cmd)
     ld.add_action(declare_container_name_cmd)
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
@@ -312,6 +414,10 @@ def generate_launch_description():
     ld.add_action(imu_filter_node)
     ld.add_action(ekf_node)
     ld.add_action(slam_node)
+    ld.add_action(twist_mux_node)
+    ld.add_action(teleop_twist_keyboard_node)
+    ld.add_action(joy_node)
+    ld.add_action(teleop_twist_joy_node)
     # Add the actions to launch all of the navigation nodes
     ld.add_action(load_nodes)
     ld.add_action(load_composable_nodes)

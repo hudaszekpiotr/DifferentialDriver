@@ -1,0 +1,4 @@
+twist_keyboard_node:
+  ros__parameters:
+    speed: 1.0
+    turn: 10.0
