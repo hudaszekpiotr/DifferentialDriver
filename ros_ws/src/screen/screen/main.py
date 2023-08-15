@@ -43,20 +43,20 @@ class ScreenNode(Node):
 
         # Create blank image for drawing.
         # Make sure to create image with mode '1' for 1-bit color.
-        width = self.disp.width
-        height = self.disp.height
-        self.image = Image.new('1', (width, height))
+        self.width = self.disp.width
+        self.height = self.disp.height
+        self.image = Image.new('1', (self.width, self.height))
 
         # Get drawing object to draw on image.
-        draw = ImageDraw.Draw(self.image)
+        self.draw = ImageDraw.Draw(self.image)
 
         # Draw a black filled box to clear the image.
-        draw.rectangle((0, 0, width, height), outline=0, fill=0)
+        self.draw.rectangle((0, 0, self.width, self.height), outline=0, fill=0)
 
         # First define some constants to allow easy resizing of shapes.
         self.padding = -2
         self.top = self.padding
-        self.bottom = height - self.padding
+        self.bottom = self.height - self.padding
         # Move left to right keeping track of the current x position for drawing shapes.
         self.x = 0
         # Load default font.

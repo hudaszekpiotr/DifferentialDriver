@@ -78,7 +78,7 @@ def generate_launch_description():
     slam_config = os.path.join(
         get_package_share_directory('startup'),
         'config',
-        'slam_toolbox.yaml'
+        'slam.yaml'
     )
 
     ekf_config = os.path.join(
@@ -242,56 +242,55 @@ def generate_launch_description():
     )
 
     # Create the launch description and populate
-    ld = LaunchDescription([
-        Node(
-            package='imu',
-            executable='main',
-            name='imu_node'
-        ),
-        IncludeLaunchDescription(PythonLaunchDescriptionSource([os.path.join(
-            get_package_share_directory('ldlidar_stl_ros2'), 'launch'),
-            '/ld19.launch.py'])),
-
-        Node(
-            package='motors_driver',
-            executable='main',
-            name='motors_driver_node',
-        ),
-        Node(
-            package='odometry',
-            executable='main',
-            name='odometry_node',
-        ),
-        Node(
-            package='twist_to_wheels_speed',
-            executable='main',
-            name='twist_to_wheels_speed_node',
-        ),
-        Node(
-            package='imu_filter_madgwick',
-            executable='imu_filter_madgwick_node',
-            name='imu_filter',
-            parameters=[imu_filter_madgwick_config],
-            remappings=[('/tf', 'unused/madgwick_tf')]  # workaround as publish_tf param is ignored
-        ),
-        Node(
-            package='robot_localization',
-            executable='ekf_node',
-            name='ekf_filter_node',
-            output='screen',
-            parameters=[ekf_config, {'use_sim_time': use_sim_time}],
-            #  arguments=['--ros-args', '--log-level', 'debug'],
-        ),
-        Node(
-            parameters=[
-                slam_config,
-                {'use_sim_time': use_sim_time}
-            ],
-            package='slam_toolbox',
-            executable='async_slam_toolbox_node',
-            name='slam_toolbox',
-            output='screen')
-    ])
+    ld = LaunchDescription()
+    imu_node = Node(
+        package='imu',
+        executable='main',
+        name='imu_node'
+    )
+    lidar_node = IncludeLaunchDescription(PythonLaunchDescriptionSource([os.path.join(
+        get_package_share_directory('ldlidar_stl_ros2'), 'launch'),
+        '/ld19.launch.py']))
+    motors_node = Node(
+        package='motors_driver',
+        executable='main',
+        name='motors_driver_node',
+    )
+    odometry_node = Node(
+        package='odometry',
+        executable='main',
+        name='odometry_node',
+    )
+    twist_to_wheels_speed_node = Node(
+        package='twist_to_wheels_speed',
+        executable='main',
+        name='twist_to_wheels_speed_node',
+    )
+    imu_filter_node = Node(
+        package='imu_filter_madgwick',
+        executable='imu_filter_madgwick_node',
+        name='imu_filter',
+        parameters=[imu_filter_madgwick_config],
+        remappings=[('/tf', 'unused/madgwick_tf')]  # workaround as publish_tf param is ignored
+    )
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[ekf_config, {'use_sim_time': use_sim_time}],
+        #  arguments=['--ros-args', '--log-level', 'debug'],
+    )
+    slam_node = Node(
+        parameters=[
+            slam_config,
+            {'use_sim_time': use_sim_time}
+        ],
+        package='slam_toolbox',
+        executable='async_slam_toolbox_node',
+        name='slam_toolbox',
+        output='screen')
+    
 
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
@@ -304,6 +303,15 @@ def generate_launch_description():
     ld.add_action(declare_container_name_cmd)
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
+    
+    ld.add_action(imu_node)
+    ld.add_action(lidar_node)
+    ld.add_action(motors_node)
+    ld.add_action(odometry_node)
+    ld.add_action(twist_to_wheels_speed_node)
+    ld.add_action(imu_filter_node)
+    ld.add_action(ekf_node)
+    ld.add_action(slam_node)
     # Add the actions to launch all of the navigation nodes
     ld.add_action(load_nodes)
     ld.add_action(load_composable_nodes)
