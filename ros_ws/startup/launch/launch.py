@@ -21,10 +21,11 @@ from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.substitutions import LaunchConfiguration, PythonExpression, Command
 from launch_ros.actions import LoadComposableNodes, SetParameter
 from launch_ros.actions import Node
 from launch_ros.descriptions import ComposableNode, ParameterFile
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
@@ -47,9 +48,11 @@ def generate_launch_description():
                        'behavior_server',
                        'bt_navigator',
                        'waypoint_follower',
-                       'velocity_smoother',
-                       'map_server',
-                       'amcl']
+                       'velocity_smoother']
+
+    #if IfCondition(PythonExpression(['not ', slam_mode])):
+    #    lifecycle_nodes.append('map_server')
+    #    lifecycle_nodes.append('amcl')
 
 
     stdout_linebuf_envvar = SetEnvironmentVariable(
@@ -64,7 +67,9 @@ def generate_launch_description():
         'use_sim_time',
         default_value='false',
         description='Use simulation (Gazebo) clock if true')
-
+        
+    urdf_pkg = FindPackageShare(package='robot_urdf').find('robot_urdf')
+    model_path = os.path.join(urdf_pkg, 'urdf_model/robot.urdf')
 
     nav2_config = os.path.join(
         get_package_share_directory('startup'),
@@ -319,9 +324,29 @@ def generate_launch_description():
         executable='main',
         name='imu_node'
     )
-    lidar_node = IncludeLaunchDescription(PythonLaunchDescriptionSource([os.path.join(
-        get_package_share_directory('ldlidar_stl_ros2'), 'launch'),
-        '/ld19.launch.py']))
+    lidar_node = Node(
+        package='ldlidar_stl_ros2',
+        executable='ldlidar_stl_ros2_node',
+        name='LD19',
+        output='screen',
+        parameters=[
+            {'product_name': 'LDLiDAR_LD19'},
+            {'topic_name': 'scan'},
+            {'frame_id': 'base_laser'},
+            {'port_name': '/dev/ttyUSB0'},
+            {'port_baudrate': 230400},
+            {'laser_scan_dir': True},
+            {'enable_angle_crop_func': False},
+            {'angle_crop_min': 135.0},
+            {'angle_crop_max': 225.0}
+        ]
+    )
+    robot_state_publisher_node = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        parameters=[{'use_sim_time': use_sim_time, 
+        'robot_description': Command(['xacro ', model_path])}]
+    )
     motors_node = Node(
         package='motors_driver',
         executable='main',
@@ -418,6 +443,7 @@ def generate_launch_description():
     ld.add_action(teleop_twist_keyboard_node)
     ld.add_action(joy_node)
     ld.add_action(teleop_twist_joy_node)
+    ld.add_action(robot_state_publisher_node)
     # Add the actions to launch all of the navigation nodes
     ld.add_action(load_nodes)
     ld.add_action(load_composable_nodes)

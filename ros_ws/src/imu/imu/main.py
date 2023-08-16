@@ -163,7 +163,7 @@ class ImuNode(Node):
         super().__init__('motors_driver')
         imu_period = 0.05  # seconds
         self.timer = self.create_timer(imu_period, self.publish_imu_callback)
-        self.imu_publisher = self.create_publisher(Imu, 'imu', 10)
+        self.imu_publisher = self.create_publisher(Imu, 'imu/data_raw', 10)
         imu_driver = ImuDriver()
         imu_driver.set_accelerometer_frequency(104)
         imu_driver.set_accelerometer_full_scale(2)
@@ -177,7 +177,7 @@ class ImuNode(Node):
 
     def publish_imu_callback(self):
         imu = Imu()
-        imu.header.frame_id = "imu"
+        imu.header.frame_id = "imu_link"
         imu.header.stamp = self.get_clock().now().to_msg()
 
         imu.angular_velocity.x = self.imu_driver.read_angular_velocity_x()
