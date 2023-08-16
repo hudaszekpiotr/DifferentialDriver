@@ -180,16 +180,24 @@ class ImuNode(Node):
         imu.header.frame_id = "imu_link"
         imu.header.stamp = self.get_clock().now().to_msg()
 
+        imu.orientation_covariance = [-1,  0.0, 0.0,
+                                      0.0, 0.0, 0.0,
+                                      0.0, 0.0, 0.0]
+
         imu.angular_velocity.x = self.imu_driver.read_angular_velocity_x()
         imu.angular_velocity.y = self.imu_driver.read_angular_velocity_y()
         imu.angular_velocity.z = self.imu_driver.read_angular_velocity_z()
-        imu.angular_velocity_covariance
+        imu.angular_velocity_covariance = [0.1, 0.0, 0.0,
+                                           0.0, 0.1, 0.0,
+                                           0.0, 0.0, 0.1]
 
         imu.linear_acceleration.x = self.imu_driver.read_linear_acceleration_x()
         imu.linear_acceleration.y = self.imu_driver.read_linear_acceleration_y()
         imu.linear_acceleration.z = self.imu_driver.read_linear_acceleration_z()
-        imu.linear_acceleration_covariance
-        
+        imu.linear_acceleration_covariance = [0.1, 0.0, 0.0,
+                                              0.0, 0.1, 0.0,
+                                              0.0, 0.0, 0.1]
+
         self.imu_publisher.publish(imu)
 
 
