@@ -31,12 +31,12 @@ class OdometryNode(Node):
         # The orientation parameters use a fixed-axis representation.
         # In order, the parameters are:
         # (x, y, z, rotation about X axis, rotation about Y axis, rotation about Z axis)
-        self.pose_covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.pose_covariance = [0.01, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0, 0.01, 0.0, 0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.01, 0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0, 0.1, 0.0, 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.1, 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.1]
 
     def new_odom_data_callback(self, msg):
         if self.t_0 is None:
@@ -46,6 +46,7 @@ class OdometryNode(Node):
         self.yaw_velocity = (msg.right_wheel - msg.left_wheel) / self.track_width
 
         delta_time = self.get_clock().now() - self.t_0
+        self.t_0 = self.get_clock().now()
         delta_time_sec = delta_time.nanoseconds / 10**9
         delta_yaw = self.yaw_velocity * delta_time_sec
         self.x = self.x + self.x_velocity * delta_time_sec * math.cos(self.yaw_angle + delta_yaw / 2)

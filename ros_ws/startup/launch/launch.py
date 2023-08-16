@@ -48,11 +48,16 @@ def generate_launch_description():
                        'behavior_server',
                        'bt_navigator',
                        'waypoint_follower',
+                       'velocity_smoother',
+                       'map_server',
+                       'amcl']
+    lifecycle_nodes_slam = ['controller_server',
+                       'smoother_server',
+                       'planner_server',
+                       'behavior_server',
+                       'bt_navigator',
+                       'waypoint_follower',
                        'velocity_smoother']
-
-    #if IfCondition(PythonExpression(['not ', slam_mode])):
-    #    lifecycle_nodes.append('map_server')
-    #    lifecycle_nodes.append('amcl')
 
 
     stdout_linebuf_envvar = SetEnvironmentVariable(
@@ -238,7 +243,20 @@ def generate_launch_description():
                 output='screen',
                 arguments=['--ros-args', '--log-level', log_level],
                 parameters=[{'autostart': autostart},
-                            {'node_names': lifecycle_nodes}]),
+                            {'node_names': lifecycle_nodes_slam}],
+                condition=IfCondition(slam_mode)
+                ),
+            Node(
+                package='nav2_lifecycle_manager',
+                executable='lifecycle_manager',
+                name='lifecycle_manager_navigation',
+                output='screen',
+                arguments=['--ros-args', '--log-level', log_level],
+                parameters=[{'autostart': autostart},
+                            {'node_names': lifecycle_nodes}],
+                condition=IfCondition(PythonExpression(['not ', slam_mode]))
+                ),
+                     
         ]
     )
 
@@ -311,7 +329,15 @@ def generate_launch_description():
                         plugin='nav2_lifecycle_manager::LifecycleManager',
                         name='lifecycle_manager_navigation',
                         parameters=[{'autostart': autostart,
-                                    'node_names': lifecycle_nodes}]),
+                                    'node_names': lifecycle_nodes}],
+                        condition=IfCondition(PythonExpression(['not ', slam_mode]))),
+                    ComposableNode(
+                        package='nav2_lifecycle_manager',
+                        plugin='nav2_lifecycle_manager::LifecycleManager',
+                        name='lifecycle_manager_navigation',
+                        parameters=[{'autostart': autostart,
+                                    'node_names': lifecycle_nodes_slam}],
+                        condition=IfCondition(slam_mode)),
                 ],
             )
         ]
