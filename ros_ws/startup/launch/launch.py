@@ -443,6 +443,11 @@ def generate_launch_description():
         remappings=[('cmd_vel', 'cmd_vel_joy')],
         parameters=[twist_joy_config],
     )
+    screen_node = Node(
+        package='screen',
+        name='screen_node',
+        executable='main'
+    )
 
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
@@ -470,6 +475,7 @@ def generate_launch_description():
     ld.add_action(joy_node)
     ld.add_action(teleop_twist_joy_node)
     ld.add_action(robot_state_publisher_node)
+    ld.add_action(screen_node)
     # Add the actions to launch all of the navigation nodes
     ld.add_action(load_nodes)
     ld.add_action(load_composable_nodes)

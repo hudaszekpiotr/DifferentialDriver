@@ -4,7 +4,7 @@ from rclpy.duration import Duration
 
 from nav_msgs.msg import Odometry
 from interfaces.msg import WheelsVelocities
-from tf_transformations import euler_from_quaternion, quaternion_from_euler
+from tf_transformations import euler_from_quaternion, quaternion_from_euler, quaternion_multiply
 from geometry_msgs.msg import PoseWithCovariance
 from geometry_msgs.msg import TwistWithCovariance
 from geometry_msgs.msg import Quaternion
@@ -14,7 +14,7 @@ class OdometryNode(Node):
 
     def __init__(self):
         super().__init__('odometry')
-        odometry_period = 0.01
+        odometry_period = 0.05
         self.subscription = self.create_subscription(WheelsVelocities, 'actual_velocity', self.new_odom_data_callback, 10)
         self.subscription  # prevent unused variable warning
         self.timer = self.create_timer(odometry_period, self.publish_odom_callback)
@@ -24,7 +24,7 @@ class OdometryNode(Node):
         self.y = 0.0
         self.x_velocity = 0.0
         self.yaw_velocity = 0.0
-        self.yaw_angle = 0.0
+        self.orientation_quaternion = [0.0, 0.0, 0.0, 1.0]
         self.t_0 = None
         self.track_width = 0.122
         # Row-major representation of the 6x6 covariance matrix
@@ -37,6 +37,12 @@ class OdometryNode(Node):
                                 0.0, 0.0, 0.0, 0.1, 0.0, 0.0,
                                 0.0, 0.0, 0.0, 0.0, 0.1, 0.0,
                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.1]
+        self.twist_covariance = [0.01, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0, 0.01, 0.0, 0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0, 0.1, 0.0, 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.1, 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
 
     def new_odom_data_callback(self, msg):
         if self.t_0 is None:
@@ -49,9 +55,11 @@ class OdometryNode(Node):
         self.t_0 = self.get_clock().now()
         delta_time_sec = delta_time.nanoseconds / 10**9
         delta_yaw = self.yaw_velocity * delta_time_sec
-        self.x = self.x + self.x_velocity * delta_time_sec * math.cos(self.yaw_angle + delta_yaw / 2)
-        self.y = self.y + self.x_velocity * delta_time_sec * math.sin(self.yaw_angle + delta_yaw / 2)
-        self.yaw_angle = self.yaw_angle + delta_yaw
+        roll, pitch, yaw = euler_from_quaternion(self.orientation_quaternion)
+        self.x = self.x + self.x_velocity * delta_time_sec * math.cos(yaw + delta_yaw / 2)
+        self.y = self.y + self.x_velocity * delta_time_sec * math.sin(yaw + delta_yaw / 2)
+        delta_quaternion = quaternion_from_euler(0.0, 0.0, -delta_yaw)
+        self.orientation_quaternion = quaternion_multiply(delta_quaternion, self.orientation_quaternion)
 
     def publish_odom_callback(self):
         odometry = Odometry()
@@ -63,21 +71,17 @@ class OdometryNode(Node):
         pose_with_covariance.pose.position.x = self.x
         pose_with_covariance.pose.position.y = self.y
 
-        quaternion = Quaternion()
-        (x, y, z, w) = quaternion_from_euler(0.0, 0.0, self.yaw_angle)
-        quaternion.x = x
-        quaternion.y = y
-        quaternion.z = z
-        quaternion.w = w
+        quaternion = Quaternion(x=self.orientation_quaternion[0], y=self.orientation_quaternion[1],
+                              z=self.orientation_quaternion[2], w=self.orientation_quaternion[3])
         
-        pose_with_covariance.pose.orientation = Quaternion()
+        pose_with_covariance.pose.orientation = quaternion
         pose_with_covariance.covariance = self.pose_covariance
         odometry.pose = pose_with_covariance
 
         twist_with_covariance = TwistWithCovariance()
         twist_with_covariance.twist.linear.x = self.x_velocity
-        twist_with_covariance.twist.angular.z = self.yaw_velocity
-        #twist_with_covariance.covariance =
+        twist_with_covariance.twist.angular.z = -self.yaw_velocity
+        twist_with_covariance.covariance = self.twist_covariance
         odometry.twist = twist_with_covariance
         self.odometry_publisher.publish(odometry)
 

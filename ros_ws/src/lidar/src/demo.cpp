@@ -165,7 +165,8 @@ void  ToLaserscanMessagePublish(ldlidar::Points2D& src,  double lidar_spin_freq,
   angle_max = (2 * M_PI);
   range_min = 0.02;
   range_max = 25;
-  int beam_size = static_cast<int>(src.size());
+  //int beam_size = static_cast<int>(src.size());	//size can vary which causes problems with slam_toolbox
+  int beam_size = 455;
   angle_increment = (angle_max - angle_min) / (float)(beam_size -1);
   // Calculate the number of scanning points
   if (lidar_spin_freq > 0) {
