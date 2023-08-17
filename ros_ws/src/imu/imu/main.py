@@ -180,7 +180,7 @@ class ImuNode(Node):
         imu.header.frame_id = "imu_link"
         imu.header.stamp = self.get_clock().now().to_msg()
 
-        imu.orientation_covariance = [-1,  0.0, 0.0,
+        imu.orientation_covariance = [-1.0,  0.0, 0.0,
                                       0.0, 0.0, 0.0,
                                       0.0, 0.0, 0.0]
 
