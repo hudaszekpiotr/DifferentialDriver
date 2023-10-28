@@ -61,6 +61,9 @@ class ScreenNode(Node):
         self.x = 0
         # Load default font.
         self.font = ImageFont.load_default()
+        self.draw.text((self.x, self.top), "Welcome to my repo", font=self.font, fill=255)
+        self.disp.image(self.image)
+        self.disp.display()
 
     def new_info_to_display_callback(self, msg):
         #text = msg.data

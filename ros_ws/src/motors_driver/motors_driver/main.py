@@ -37,7 +37,7 @@ class Motor():
         self.pi.set_mode(encoder_B_pin, pigpio.INPUT)
         self.pi.set_glitch_filter(encoder_B_pin, 100)
 
-        self.max_error_integrated = 1000
+        self.max_error_integrated = 0.1
 
         pi.callback(encoder_A_pin, pigpio.EITHER_EDGE, self.encoder_callback)
         pi.callback(encoder_B_pin, pigpio.EITHER_EDGE, self.encoder_callback)
@@ -67,7 +67,7 @@ class Motor():
     def calculate_pid_effort(self):
         error = (self.requested_velocity - self.actual_velocity)
 
-        self.error_integrated += error
+        self.error_integrated += error * self.pid_period
         if self.error_integrated > self.max_error_integrated:
             self.error_integrated = self.max_error_integrated
         if self.error_integrated < -self.max_error_integrated:
@@ -78,6 +78,7 @@ class Motor():
 
         effort = self.P * error + self.I * self.error_integrated + self.D * error_derivative
         if self.requested_velocity == 0:
+            error_derivative = 0
             effort = 0
 
         if effort > 1:
@@ -107,9 +108,9 @@ class MotorsDriver(Node):
         super().__init__('motors_driver')
         pi = pigpio.pi()
         pid_period = 0.05  # seconds
-        P = 5
-        I = 2
-        D = 0.1
+        P = 2
+        I = 10
+        D = 0.0
 
 
 

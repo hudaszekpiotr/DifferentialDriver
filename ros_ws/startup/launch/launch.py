@@ -22,57 +22,37 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression, Command
-from launch_ros.actions import LoadComposableNodes, SetParameter
-from launch_ros.actions import Node
-from launch_ros.descriptions import ComposableNode, ParameterFile
+from launch_ros.actions import Node, SetParameter
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     # Get the launch directory
     bringup_dir = get_package_share_directory('startup')
-
     namespace = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
-    use_composition = LaunchConfiguration('use_composition')
     slam_mode = LaunchConfiguration('slam_mode')
-    container_name = LaunchConfiguration('container_name')
-    container_name_full = (namespace, '/', container_name)
     use_respawn = LaunchConfiguration('use_respawn')
     log_level = LaunchConfiguration('log_level')
 
-    lifecycle_nodes = ['controller_server',
-                       'smoother_server',
+    lifecycle_nodes = ['map_server',
+                       'controller_server',
+                       'amcl',
                        'planner_server',
                        'behavior_server',
                        'bt_navigator',
-                       'waypoint_follower',
-                       'velocity_smoother',
-                       'map_server',
-                       'amcl']
+                       'waypoint_follower']
     lifecycle_nodes_slam = ['controller_server',
-                       'smoother_server',
                        'planner_server',
                        'behavior_server',
                        'bt_navigator',
-                       'waypoint_follower',
-                       'velocity_smoother']
+                       'waypoint_follower']
 
 
     stdout_linebuf_envvar = SetEnvironmentVariable(
         'RCUTILS_LOGGING_BUFFERED_STREAM', '1')
 
-    declare_namespace_cmd = DeclareLaunchArgument(
-        'namespace',
-        default_value='',
-        description='Top-level namespace')
-
-    declare_use_sim_time_cmd = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='false',
-        description='Use simulation (Gazebo) clock if true')
-        
     urdf_pkg = FindPackageShare(package='robot_urdf').find('robot_urdf')
     model_path = os.path.join(urdf_pkg, 'urdf_model/robot.urdf')
 
@@ -106,12 +86,6 @@ def generate_launch_description():
         'twist_mux.yaml'
     )
 
-    twist_keyboard_config = os.path.join(
-        get_package_share_directory('startup'),
-        'config',
-        'twist_keyboard.yaml'
-    )
-
     joy_config = os.path.join(
         get_package_share_directory('startup'),
         'config',
@@ -124,34 +98,57 @@ def generate_launch_description():
         'twist_joy.yaml'
     )
 
+    declare_namespace_cmd = DeclareLaunchArgument(
+        'namespace',
+        default_value='',
+        description='Top-level namespace')
+
+    declare_use_sim_time_cmd = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='false',
+        description='Use simulation (Gazebo) clock if true')
+
     declare_autostart_cmd = DeclareLaunchArgument(
         'autostart', default_value='true',
         description='Automatically startup the nav2 stack')
-
-    declare_use_composition_cmd = DeclareLaunchArgument(
-        'use_composition', default_value='False',
-        description='Use composed bringup if True')
 
     declare_slam_mode_cmd = DeclareLaunchArgument(
         'slam_mode', default_value='False',
         description='Use SLAM')
 
-    declare_container_name_cmd = DeclareLaunchArgument(
-        'container_name', default_value='nav2_container',
-        description='the name of conatiner that nodes will load in if use composition')
-
     declare_use_respawn_cmd = DeclareLaunchArgument(
         'use_respawn', default_value='False',
-        description='Whether to respawn if a node crashes. Applied when composition is disabled.')
+        description='Whether to respawn if a node crashes.')
 
     declare_log_level_cmd = DeclareLaunchArgument(
         'log_level', default_value='info',
         description='log level')
 
     load_nodes = GroupAction(
-        condition=IfCondition(PythonExpression(['not ', use_composition])),
         actions=[
             SetParameter('use_sim_time', use_sim_time),
+            Node(
+                package='nav2_map_server',
+                executable='map_server',
+                name='map_server',
+                output='screen',
+                parameters=[nav2_config,
+                            {'use_sim_time': use_sim_time}],
+                arguments=['--ros-args', '--log-level', log_level],
+                condition=IfCondition(PythonExpression(['not ', slam_mode])),
+                remappings = [('odom', 'odometry/filtered')],
+            ),
+            Node(
+                package='nav2_amcl',
+                executable='amcl',
+                name='amcl',
+                output='screen',
+                parameters=[nav2_config,
+                            {'use_sim_time': use_sim_time}],
+                arguments=['--ros-args', '--log-level', log_level],
+                condition=IfCondition(PythonExpression(['not ', slam_mode])),
+                remappings = [('odom', 'odometry/filtered')],
+            ),
             Node(
                 package='nav2_controller',
                 executable='controller_server',
@@ -161,15 +158,6 @@ def generate_launch_description():
                 parameters=[nav2_config],
                 arguments=['--ros-args', '--log-level', log_level],
                 remappings= [('cmd_vel', 'cmd_vel_nav')]),
-            Node(
-                package='nav2_smoother',
-                executable='smoother_server',
-                name='smoother_server',
-                output='screen',
-                respawn=use_respawn,
-                respawn_delay=2.0,
-                parameters=[nav2_config],
-                arguments=['--ros-args', '--log-level', log_level]),
             Node(
                 package='nav2_planner',
                 executable='planner_server',
@@ -207,36 +195,6 @@ def generate_launch_description():
                 parameters=[nav2_config],
                 arguments=['--ros-args', '--log-level', log_level]),
             Node(
-                package='nav2_velocity_smoother',
-                executable='velocity_smoother',
-                name='velocity_smoother',
-                output='screen',
-                respawn=use_respawn,
-                respawn_delay=2.0,
-                parameters=[nav2_config],
-                arguments=['--ros-args', '--log-level', log_level],
-                remappings= [('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', 'cmd_vel')]),
-            Node(
-                package='nav2_map_server',
-                executable='map_server',
-                name='map_server',
-                output='screen',
-                parameters=[nav2_config,
-                            {'use_sim_time': use_sim_time}],
-                arguments=['--ros-args'],
-                condition=IfCondition(PythonExpression(['not ', slam_mode]))
-            ),
-            Node(
-                package='nav2_amcl',
-                executable='amcl',
-                name='amcl',
-                output='screen',
-                parameters=[nav2_config,
-                            {'use_sim_time': use_sim_time}],
-                arguments=['--ros-args'],
-                condition=IfCondition(PythonExpression(['not ', slam_mode]))
-            ),
-            Node(
                 package='nav2_lifecycle_manager',
                 executable='lifecycle_manager',
                 name='lifecycle_manager_navigation',
@@ -256,94 +214,9 @@ def generate_launch_description():
                             {'node_names': lifecycle_nodes}],
                 condition=IfCondition(PythonExpression(['not ', slam_mode]))
                 ),
-                     
         ]
     )
 
-    load_composable_nodes = GroupAction(
-        condition=IfCondition(use_composition),
-        actions=[
-            SetParameter('use_sim_time', use_sim_time),
-            LoadComposableNodes(
-                target_container=container_name_full,
-                composable_node_descriptions=[
-                    ComposableNode(
-                        package='nav2_controller',
-                        plugin='nav2_controller::ControllerServer',
-                        name='controller_server',
-                        parameters=[nav2_config],
-                        remappings=[('cmd_vel', 'cmd_vel_nav')]),
-                    ComposableNode(
-                        package='nav2_smoother',
-                        plugin='nav2_smoother::SmootherServer',
-                        name='smoother_server',
-                        parameters=[nav2_config]),
-                    ComposableNode(
-                        package='nav2_planner',
-                        plugin='nav2_planner::PlannerServer',
-                        name='planner_server',
-                        parameters=[nav2_config]),
-                    ComposableNode(
-                        package='nav2_behaviors',
-                        plugin='behavior_server::BehaviorServer',
-                        name='behavior_server',
-                        parameters=[nav2_config]),
-                    ComposableNode(
-                        package='nav2_bt_navigator',
-                        plugin='nav2_bt_navigator::BtNavigator',
-                        name='bt_navigator',
-                        parameters=[nav2_config]),
-                    ComposableNode(
-                        package='nav2_waypoint_follower',
-                        plugin='nav2_waypoint_follower::WaypointFollower',
-                        name='waypoint_follower',
-                        parameters=[nav2_config]),
-                    ComposableNode(
-                        package='nav2_velocity_smoother',
-                        plugin='nav2_velocity_smoother::VelocitySmoother',
-                        name='velocity_smoother',
-                        parameters=[nav2_config],
-                        remappings=[('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', 'cmd_vel')]),
-                    Node(
-                        package='nav2_map_server',
-                        executable='map_server',
-                        name='map_server',
-                        output='screen',
-                        parameters=[nav2_config,
-                                    {'use_sim_time': use_sim_time}],
-                        arguments=['--ros-args'],
-                        condition=IfCondition(PythonExpression(['not ', slam_mode]))
-                    ),
-                    Node(
-                        package='nav2_amcl',
-                        executable='amcl',
-                        name='amcl',
-                        output='screen',
-                        parameters=[nav2_config,
-                                    {'use_sim_time': use_sim_time}],
-                        arguments=['--ros-args'],
-                        condition=IfCondition(PythonExpression(['not ', slam_mode]))
-                    ),
-                    ComposableNode(
-                        package='nav2_lifecycle_manager',
-                        plugin='nav2_lifecycle_manager::LifecycleManager',
-                        name='lifecycle_manager_navigation',
-                        parameters=[{'autostart': autostart,
-                                    'node_names': lifecycle_nodes}],
-                        condition=IfCondition(PythonExpression(['not ', slam_mode]))),
-                    ComposableNode(
-                        package='nav2_lifecycle_manager',
-                        plugin='nav2_lifecycle_manager::LifecycleManager',
-                        name='lifecycle_manager_navigation',
-                        parameters=[{'autostart': autostart,
-                                    'node_names': lifecycle_nodes_slam}],
-                        condition=IfCondition(slam_mode)),
-                ],
-            )
-        ]
-    )
-
-    # Create the launch description and populate
     ld = LaunchDescription()
     imu_node = Node(
         package='imu',
@@ -421,15 +294,6 @@ def generate_launch_description():
         remappings={('/cmd_vel_out', 'cmd_vel')},
         parameters=[twist_mux_config]
     )
-    teleop_twist_keyboard_node = Node(
-        package='teleop_twist_keyboard',
-        executable='teleop_twist_keyboard',
-        name='twist_keyboard_node',
-        output='screen',
-        prefix='xterm -e',
-        remappings=[('cmd_vel', 'cmd_vel_keyboard')],
-        parameters=[twist_keyboard_config]
-    )
     joy_node = Node(
         package='joy',
         name='joy_node',
@@ -456,12 +320,10 @@ def generate_launch_description():
     ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_use_sim_time_cmd)
     ld.add_action(declare_autostart_cmd)
-    ld.add_action(declare_use_composition_cmd)
     ld.add_action(declare_slam_mode_cmd)
-    ld.add_action(declare_container_name_cmd)
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
-    
+
     ld.add_action(imu_node)
     ld.add_action(lidar_node)
     ld.add_action(motors_node)
@@ -471,13 +333,11 @@ def generate_launch_description():
     ld.add_action(ekf_node)
     ld.add_action(slam_node)
     ld.add_action(twist_mux_node)
-    ld.add_action(teleop_twist_keyboard_node)
     ld.add_action(joy_node)
     ld.add_action(teleop_twist_joy_node)
     ld.add_action(robot_state_publisher_node)
     ld.add_action(screen_node)
     # Add the actions to launch all of the navigation nodes
     ld.add_action(load_nodes)
-    ld.add_action(load_composable_nodes)
 
     return ld

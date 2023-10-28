@@ -64,7 +64,7 @@
   <!-- ********************** ROBOT BASE *********************************  -->
   <link name="base_link">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
       <geometry>
         <mesh filename="package://robot_urdf/meshes/robot.stl" scale="0.001 0.001 0.001"/>
       </geometry>
@@ -92,7 +92,7 @@
   <xacro:macro name="wheel" params="prefix x_reflect y_reflect flip">
     <link name="${prefix}_link">
       <visual>
-        <origin xyz="0 0 0" rpy="0 0 ${flip*pi}"/>
+        <origin xyz="0 0 0.04" rpy="0 0 ${flip*pi}"/>
         <geometry>
           <mesh filename="package://robot_urdf/meshes/wheel.stl" scale="0.1 0.1 0.1"/>
         </geometry>
@@ -115,12 +115,10 @@
     <!-- Connect the wheels to the base_link at the appropriate location, and 
          define a continuous joint to allow the wheels to freely rotate about
          an axis -->
-    <joint name="${prefix}_joint" type="revolute">
+    <joint name="${prefix}_joint" type="fixed">
       <parent link="base_link"/>
       <child link="${prefix}_link"/>
       <origin xyz="${x_reflect*wheel_xoff} ${y_reflect*(base_width/2+wheel_ygap)} ${-wheel_zoff}" rpy="0 0 0"/>
-      <limit upper="3.1415" lower="-3.1415" effort="30" velocity="5.0"/>
-      <axis xyz="0 1 0"/>
     </joint>
   </xacro:macro>
 
@@ -144,7 +142,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.04" rpy="0 0 0"/>
       <geometry>
         <sphere radius="${caster_radius}"/>
       </geometry>
@@ -161,7 +159,7 @@
   <joint name="caster_joint" type="fixed">
     <parent link="base_link"/>
     <child link="front_caster"/>
-    <origin xyz="${caster_xoff} 0.0 -0.0294" rpy="0 0 0"/>
+    <origin xyz="${caster_xoff} 0.0 0.0106" rpy="0 0 0"/>
   </joint>
   
   <!-- *********************** IMU SETUP *********************************  -->
@@ -201,5 +199,24 @@
       </material>
     </visual>
   </link>
+
+  <!-- *********************** CLIFF SENSOR SETUP **********************************  -->
+  <joint name="base_cliff_sensor_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="base_cliff_sensor"/>
+    <origin xyz="0.08 0 0.005" rpy="0 0 ${pi/2}"/>
+  </joint>
+
+    <link name="base_cliff_sensor">
+    <visual>
+      <geometry>
+	      <box size="0.03 0.02 0.01" />
+      </geometry>
+      <material name="White">
+        <color rgba="${255/255} ${255/255} ${255/255} 1.0"/>
+      </material>
+    </visual>
+  </link>
+
 
 </robot>
