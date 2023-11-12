@@ -89,6 +89,7 @@ class Motor():
         return effort
 
     def set_motor_effort(self, effort):
+        effort = 0.2
         if self.is_motor_reversed:
             effort = -effort
 
@@ -100,6 +101,9 @@ class Motor():
             dutycycle = 1000000 - int(abs(effort) * 1000000)
 
         self.pi.hardware_PWM(self.pwm_pin, self.pwm_frequency, dutycycle)
+
+    def stop(self):
+        self.pi.hardware_PWM(self.pwm_pin, self.pwm_frequency, 0)
 
 
 class MotorsDriver(Node):
@@ -159,7 +163,8 @@ def main(args=None):
     motors_driver = MotorsDriver()
 
     rclpy.spin(motors_driver)
-
+    motors_driver.right_motor.stop()
+    motors_driver.left_motor.stop()
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)

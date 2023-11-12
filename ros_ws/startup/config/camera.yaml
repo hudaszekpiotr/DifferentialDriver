@@ -1,0 +1,9 @@
+v4l2_camera_node:
+  ros__parameters:
+    auto_exposure: 1
+    brightness: 55
+    camera_frame_id: 'base_camera'
+    output_encoding: 'yuv422_yuy2'
+    exposure_dynamic_framerate: True
+    image_stabilization: True
+    time_per_frame: [1, 15]

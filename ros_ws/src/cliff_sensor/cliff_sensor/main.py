@@ -14,27 +14,30 @@ class CliffSensorNode(Node):
         super().__init__('motors_driver')
         self.pi = pigpio.pi()
         self.pi.set_mode(cliff_sensor_pin, pigpio.INPUT)
-        
-        self.timer = self.create_timer(period, self.read_pin_callback)
+        self.pi.set_glitch_filter(cliff_sensor_pin, 10000)
         self.sensor_publisher = self.create_publisher(Range, 'cliff_sensor', 10)
-        
+        self.pi.callback(cliff_sensor_pin, pigpio.EITHER_EDGE, self.cliff_sensor_pin_callback)
         msg = Range()
         msg.header.frame_id = "base_cliff_sensor"
         msg.radiation_type = 1
         msg.field_of_view = math.pi/6
         msg.min_range = 0.0
-        msg.max_range = 0.02
-        self.msg = msg
-        
-    def read_pin_callback(self):
-        self.msg.header.stamp = self.get_clock().now().to_msg()
-        level = self.pi.read(cliff_sensor_pin)
-        if level:
-            self.msg.range = 0.0
+        msg.max_range = 0.016
+        if self.pi.read(cliff_sensor_pin):
+            msg.range = 0.001
         else:
-            self.msg.range = 1.0
-
+            msg.range = 1.0
+        self.msg = msg
         self.sensor_publisher.publish(self.msg)
+        
+    def cliff_sensor_pin_callback(self, gpio, level, tick):
+        self.msg.header.stamp = self.get_clock().now().to_msg()
+        if level == 0:
+            self.msg.range = 1.0
+            self.sensor_publisher.publish(self.msg)
+        elif level == 1:
+            self.msg.range = 0.001
+            self.sensor_publisher.publish(self.msg)
 
 
 def main(args=None):

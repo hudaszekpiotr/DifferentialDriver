@@ -98,6 +98,12 @@ def generate_launch_description():
         'twist_joy.yaml'
     )
 
+    camera_config = os.path.join(
+        get_package_share_directory('startup'),
+        'config',
+        'camera.yaml'
+    )
+
     declare_namespace_cmd = DeclareLaunchArgument(
         'namespace',
         default_value='',
@@ -312,6 +318,24 @@ def generate_launch_description():
         name='screen_node',
         executable='main'
     )
+    camera_node = Node(
+        package='v4l2_camera',
+        name='v4l2_camera_node',
+        executable='v4l2_camera_node',
+        parameters=[camera_config],
+    )
+
+    cliff_sensor_node = Node(
+        package='cliff_sensor',
+        name='cliff_sensor_node',
+        executable='main'
+    )
+
+    ultrasonic_sensor_node = Node(
+        package='ultrasonic_sensor',
+        name='ultrasonic_sensor_node',
+        executable='main'
+    )
 
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
@@ -337,6 +361,9 @@ def generate_launch_description():
     ld.add_action(teleop_twist_joy_node)
     ld.add_action(robot_state_publisher_node)
     ld.add_action(screen_node)
+    ld.add_action(camera_node)
+    ld.add_action(cliff_sensor_node)
+    ld.add_action(ultrasonic_sensor_node)
     # Add the actions to launch all of the navigation nodes
     ld.add_action(load_nodes)
 

@@ -186,7 +186,7 @@
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/>
     <child link="base_laser"/>
-    <origin xyz="0.011 0 0.0864" rpy="0 0 ${pi/2}"/>
+    <origin xyz="0.011 0 0.1264" rpy="0 0 ${pi/2}"/>
   </joint>
 
     <link name="base_laser">
@@ -204,7 +204,7 @@
   <joint name="base_cliff_sensor_joint" type="fixed">
     <parent link="base_link"/>
     <child link="base_cliff_sensor"/>
-    <origin xyz="0.08 0 0.005" rpy="0 0 ${pi/2}"/>
+    <origin xyz="0.09 0 0.045" rpy="0 0 0"/>
   </joint>
 
     <link name="base_cliff_sensor">
