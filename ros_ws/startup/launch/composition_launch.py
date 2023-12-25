@@ -22,7 +22,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable
 from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression, Command
-from launch_ros.actions import Node, SetParameter, LoadComposableNodes
+from launch_ros.actions import Node, SetParameter, ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode, ParameterFile
 from launch_ros.substitutions import FindPackageShare
 
@@ -118,10 +118,6 @@ def generate_launch_description():
         'slam_mode', default_value='False',
         description='Use SLAM')
 
-    declare_container_name_cmd = DeclareLaunchArgument(
-        'container_name', default_value='nav2_container',
-        description='the name of conatiner that nodes will load in if use composition')
-
     declare_use_respawn_cmd = DeclareLaunchArgument(
         'use_respawn', default_value='False',
         description='Whether to respawn if a node crashes.')
@@ -130,12 +126,12 @@ def generate_launch_description():
         'log_level', default_value='info',
         description='log level')
 
-    load_composable_nodes  = GroupAction(
-        actions=[
-            SetParameter('use_sim_time', use_sim_time),
-            LoadComposableNodes(
-                target_container=container_name,
-                composable_node_descriptions=[
+    nav2_container = ComposableNodeContainer(
+        name='nav2_container',
+        namespace='',
+        package='rclcpp_components',
+        executable='component_container',
+        composable_node_descriptions=[
             ComposableNode(
                 package='nav2_map_server',
                 plugin='nav2_map_server::MapServer',
@@ -143,8 +139,7 @@ def generate_launch_description():
                 parameters=[nav2_config,
                             {'use_sim_time': use_sim_time}],
                 condition=IfCondition(PythonExpression(['not ', slam_mode])),
-                remappings = [('odom', 'odometry/filtered')],
-            ),
+                remappings = [('odom', 'odometry/filtered')]),
             ComposableNode(
                 package='nav2_amcl',
                 plugin='nav2_amcl::AmclNode',
@@ -152,8 +147,7 @@ def generate_launch_description():
                 parameters=[nav2_config,
                             {'use_sim_time': use_sim_time}],
                 condition=IfCondition(PythonExpression(['not ', slam_mode])),
-                remappings = [('odom', 'odometry/filtered')],
-            ),
+                remappings = [('odom', 'odometry/filtered')]),
             ComposableNode(
                 package='nav2_controller',
                 plugin='nav2_controller::ControllerServer',
@@ -186,17 +180,14 @@ def generate_launch_description():
                 name='lifecycle_manager_navigation',
                 parameters=[{'autostart': autostart},
                             {'node_names': lifecycle_nodes_slam}],
-                condition=IfCondition(slam_mode)
-                ),
+                condition=IfCondition(slam_mode)),
             ComposableNode(
                 package='nav2_lifecycle_manager',
                 plugin='nav2_lifecycle_manager::LifecycleManager',
                 name='lifecycle_manager_navigation',
                 parameters=[{'autostart': autostart},
                             {'node_names': lifecycle_nodes}],
-                condition=IfCondition(PythonExpression(['not ', slam_mode]))
-                ),
-            ])
+                condition=IfCondition(PythonExpression(['not ', slam_mode]))),
         ]
     )
 
@@ -303,12 +294,12 @@ def generate_launch_description():
         executable='v4l2_camera_node',
         parameters=[camera_config],
     )
-    cliff_sensor_node_cpp = Node(
+    cliff_sensor_node = Node(
         package='cliff_sensor_cpp',
         name='cliff_sensor_node',
         executable='main'
     )
-    ultrasonic_sensor_node_cpp = Node(
+    ultrasonic_sensor_node = Node(
         package='ultrasonic_sensor_cpp',
         name='ultrasonic_sensor_node',
         executable='main'
@@ -317,12 +308,10 @@ def generate_launch_description():
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
 
-
     # Declare the launch options
     ld.add_action(declare_use_sim_time_cmd)
     ld.add_action(declare_autostart_cmd)
     ld.add_action(declare_slam_mode_cmd)
-    ld.add_action(declare_container_name_cmd)
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
 
@@ -340,10 +329,10 @@ def generate_launch_description():
     ld.add_action(robot_state_publisher_node)
     #ld.add_action(screen_node)
     #ld.add_action(camera_node)
-    #ld.add_action(cliff_sensor_node_cpp)
-    #ld.add_action(ultrasonic_sensor_node_cpp)
-    # Add the actions to launch all of the navigation nodes
-    ld.add_action(load_composable_nodes )
+    ld.add_action(cliff_sensor_node)
+    ld.add_action(ultrasonic_sensor_node)
+
+    ld.add_action(nav2_container)
 
     return ld
 
