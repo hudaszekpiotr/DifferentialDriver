@@ -89,7 +89,6 @@ class Motor():
         return effort
 
     def set_motor_effort(self, effort):
-        effort = 0.2
         if self.is_motor_reversed:
             effort = -effort
 

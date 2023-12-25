@@ -22,24 +22,24 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable
 from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression, Command
-from launch_ros.actions import Node, SetParameter
+from launch_ros.actions import Node, SetParameter, LoadComposableNodes
+from launch_ros.descriptions import ComposableNode, ParameterFile
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     # Get the launch directory
     bringup_dir = get_package_share_directory('startup')
-    namespace = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
     slam_mode = LaunchConfiguration('slam_mode')
-    use_cpp_nodes = LaunchConfiguration('use_cpp_nodes')
+    container_name = LaunchConfiguration('container_name')
     use_respawn = LaunchConfiguration('use_respawn')
     log_level = LaunchConfiguration('log_level')
 
     lifecycle_nodes = ['map_server',
-                       'controller_server',
                        'amcl',
+                       'controller_server',
                        'planner_server',
                        'behavior_server',
                        'bt_navigator',
@@ -105,11 +105,6 @@ def generate_launch_description():
         'camera.yaml'
     )
 
-    declare_namespace_cmd = DeclareLaunchArgument(
-        'namespace',
-        default_value='',
-        description='Top-level namespace')
-
     declare_use_sim_time_cmd = DeclareLaunchArgument(
         'use_sim_time',
         default_value='false',
@@ -123,9 +118,9 @@ def generate_launch_description():
         'slam_mode', default_value='False',
         description='Use SLAM')
 
-    declare_use_cpp_nodes_cmd = DeclareLaunchArgument(
-        'use_cpp_nodes', default_value='False',
-        description='Use c++ nodes, if false use python nodes')
+    declare_container_name_cmd = DeclareLaunchArgument(
+        'container_name', default_value='nav2_container',
+        description='the name of conatiner that nodes will load in if use composition')
 
     declare_use_respawn_cmd = DeclareLaunchArgument(
         'use_respawn', default_value='False',
@@ -135,96 +130,73 @@ def generate_launch_description():
         'log_level', default_value='info',
         description='log level')
 
-    load_nodes = GroupAction(
+    load_composable_nodes  = GroupAction(
         actions=[
             SetParameter('use_sim_time', use_sim_time),
-            Node(
+            LoadComposableNodes(
+                target_container=container_name,
+                composable_node_descriptions=[
+            ComposableNode(
                 package='nav2_map_server',
-                executable='map_server',
+                plugin='nav2_map_server::MapServer',
                 name='map_server',
-                output='screen',
                 parameters=[nav2_config,
                             {'use_sim_time': use_sim_time}],
-                arguments=['--ros-args', '--log-level', log_level],
                 condition=IfCondition(PythonExpression(['not ', slam_mode])),
                 remappings = [('odom', 'odometry/filtered')],
             ),
-            Node(
+            ComposableNode(
                 package='nav2_amcl',
-                executable='amcl',
+                plugin='nav2_amcl::AmclNode',
                 name='amcl',
-                output='screen',
                 parameters=[nav2_config,
                             {'use_sim_time': use_sim_time}],
-                arguments=['--ros-args', '--log-level', log_level],
                 condition=IfCondition(PythonExpression(['not ', slam_mode])),
                 remappings = [('odom', 'odometry/filtered')],
             ),
-            Node(
+            ComposableNode(
                 package='nav2_controller',
-                executable='controller_server',
-                output='screen',
-                respawn=use_respawn,
-                respawn_delay=2.0,
+                plugin='nav2_controller::ControllerServer',
+                name='controller_server',
                 parameters=[nav2_config],
-                arguments=['--ros-args', '--log-level', log_level],
                 remappings= [('cmd_vel', 'cmd_vel_nav')]),
-            Node(
+            ComposableNode(
                 package='nav2_planner',
-                executable='planner_server',
+                plugin='nav2_planner::PlannerServer',
                 name='planner_server',
-                output='screen',
-                respawn=use_respawn,
-                respawn_delay=2.0,
-                parameters=[nav2_config],
-                arguments=['--ros-args', '--log-level', log_level]),
-            Node(
+                parameters=[nav2_config]),
+            ComposableNode(
                 package='nav2_behaviors',
-                executable='behavior_server',
+                plugin='behavior_server::BehaviorServer',
                 name='behavior_server',
-                output='screen',
-                respawn=use_respawn,
-                respawn_delay=2.0,
-                parameters=[nav2_config],
-                arguments=['--ros-args', '--log-level', log_level]),
-            Node(
+                parameters=[nav2_config]),
+            ComposableNode(
                 package='nav2_bt_navigator',
-                executable='bt_navigator',
+                plugin='nav2_bt_navigator::BtNavigator',
                 name='bt_navigator',
-                output='screen',
-                respawn=use_respawn,
-                respawn_delay=2.0,
-                parameters=[nav2_config],
-                arguments=['--ros-args', '--log-level', log_level]),
-            Node(
+                parameters=[nav2_config]),
+            ComposableNode(
                 package='nav2_waypoint_follower',
-                executable='waypoint_follower',
+                plugin='nav2_waypoint_follower::WaypointFollower',
                 name='waypoint_follower',
-                output='screen',
-                respawn=use_respawn,
-                respawn_delay=2.0,
-                parameters=[nav2_config],
-                arguments=['--ros-args', '--log-level', log_level]),
-            Node(
+                parameters=[nav2_config]),
+            ComposableNode(
                 package='nav2_lifecycle_manager',
-                executable='lifecycle_manager',
+                plugin='nav2_lifecycle_manager::LifecycleManager',
                 name='lifecycle_manager_navigation',
-                output='screen',
-                arguments=['--ros-args', '--log-level', log_level],
                 parameters=[{'autostart': autostart},
                             {'node_names': lifecycle_nodes_slam}],
                 condition=IfCondition(slam_mode)
                 ),
-            Node(
+            ComposableNode(
                 package='nav2_lifecycle_manager',
-                executable='lifecycle_manager',
+                plugin='nav2_lifecycle_manager::LifecycleManager',
                 name='lifecycle_manager_navigation',
-                output='screen',
-                arguments=['--ros-args', '--log-level', log_level],
                 parameters=[{'autostart': autostart},
                             {'node_names': lifecycle_nodes}],
                 condition=IfCondition(PythonExpression(['not ', slam_mode]))
                 ),
+            ])
         ]
     )
 
@@ -251,56 +223,28 @@ def generate_launch_description():
     robot_state_publisher_node = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
-        parameters=[{'use_sim_time': use_sim_time, 
+        parameters=[{'use_sim_time': use_sim_time,
         'robot_description': Command(['xacro ', model_path])}]
-    )
-    imu_node = Node(
-        package='imu',
-        executable='main',
-        name='imu_node',
-        condition=UnlessCondition(use_cpp_nodes)
     )
     imu_node_cpp = Node(
         package='imu_cpp',
         executable='main',
-        name='imu_node',
-        condition=IfCondition(use_cpp_nodes)
-    )
-    motors_node = Node(
-        package='motors_driver',
-        executable='main',
-        name='motors_driver_node',
-        condition=UnlessCondition(use_cpp_nodes)
+        name='imu_node'
     )
     motors_node_cpp = Node(
         package='motors_driver_cpp',
         executable='main',
-        name='motors_driver_node',
-        condition=IfCondition(use_cpp_nodes)
-    )
-    odometry_node = Node(
-        package='odometry',
-        executable='main',
-        name='odometry_node',
-        condition=UnlessCondition(use_cpp_nodes)
+        name='motors_driver_node'
     )
     odometry_node_cpp = Node(
         package='odometry_cpp',
         executable='main',
-        name='odometry_node',
-        condition=IfCondition(use_cpp_nodes)
-    )
-    twist_to_wheels_speed_node = Node(
-        package='twist_to_wheels_speed',
-        executable='main',
-        name='twist_to_wheels_speed_node',
-        condition=UnlessCondition(use_cpp_nodes)
+        name='odometry_node'
     )
     twist_to_wheels_speed_node_cpp = Node(
         package='twist_to_wheels_speed_cpp',
         executable='main',
-        name='twist_to_wheels_speed_node',
-        condition=IfCondition(use_cpp_nodes)
+        name='twist_to_wheels_speed_node'
     )
     imu_filter_node = Node(
         package='imu_filter_madgwick',
@@ -359,53 +303,33 @@ def generate_launch_description():
         executable='v4l2_camera_node',
         parameters=[camera_config],
     )
-
-    cliff_sensor_node = Node(
-        package='cliff_sensor',
-        name='cliff_sensor_node',
-        executable='main',
-        condition=UnlessCondition(use_cpp_nodes)
-    )
     cliff_sensor_node_cpp = Node(
         package='cliff_sensor_cpp',
         name='cliff_sensor_node',
-        executable='main',
-        condition=IfCondition(use_cpp_nodes)
-    )
-
-    ultrasonic_sensor_node = Node(
-        package='ultrasonic_sensor',
-        name='ultrasonic_sensor_node',
-        executable='main',
-        condition=UnlessCondition(use_cpp_nodes)
+        executable='main'
     )
     ultrasonic_sensor_node_cpp = Node(
         package='ultrasonic_sensor_cpp',
         name='ultrasonic_sensor_node',
-        executable='main',
-        condition=IfCondition(use_cpp_nodes)
+        executable='main'
     )
 
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
 
+
     # Declare the launch options
-    ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_use_sim_time_cmd)
     ld.add_action(declare_autostart_cmd)
     ld.add_action(declare_slam_mode_cmd)
-    ld.add_action(declare_use_cpp_nodes_cmd)
+    ld.add_action(declare_container_name_cmd)
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
 
-    ld.add_action(imu_node)
     ld.add_action(imu_node_cpp)
     ld.add_action(lidar_node)
-    ld.add_action(motors_node)
     ld.add_action(motors_node_cpp)
-    ld.add_action(odometry_node)
     ld.add_action(odometry_node_cpp)
-    ld.add_action(twist_to_wheels_speed_node)
     ld.add_action(twist_to_wheels_speed_node_cpp)
     ld.add_action(imu_filter_node)
     ld.add_action(ekf_node)
@@ -416,12 +340,10 @@ def generate_launch_description():
     ld.add_action(robot_state_publisher_node)
     #ld.add_action(screen_node)
     #ld.add_action(camera_node)
-    #ld.add_action(cliff_sensor_node)
     #ld.add_action(cliff_sensor_node_cpp)
-    #ld.add_action(ultrasonic_sensor_node)
     #ld.add_action(ultrasonic_sensor_node_cpp)
     # Add the actions to launch all of the navigation nodes
-    ld.add_action(load_nodes)
+    ld.add_action(load_composable_nodes )
 
     return ld
 
