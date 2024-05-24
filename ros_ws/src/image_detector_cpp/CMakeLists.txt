@@ -14,6 +14,7 @@ find_package(image_transport REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(interfaces REQUIRED)
+find_package(std_srvs REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -22,13 +23,18 @@ find_package(interfaces REQUIRED)
 add_executable(main src/image_detector_cpp.cpp)
 ament_target_dependencies(main rclcpp std_msgs sensor_msgs visualization_msgs cv_bridge image_transport OpenCV)
 
-add_executable(train_face_recognition src/train_face_recognition.cpp)
-ament_target_dependencies(main rclcpp std_msgs sensor_msgs visualization_msgs cv_bridge image_transport OpenCV interfaces)
-
 target_include_directories(main PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_compile_features(main PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
+add_executable(train_face_recognition src/train_face_recognition_cpp.cpp)
+ament_target_dependencies(train_face_recognition rclcpp std_msgs std_srvs sensor_msgs visualization_msgs cv_bridge image_transport OpenCV interfaces)
+
+target_include_directories(train_face_recognition PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(train_face_recognition PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
 install(TARGETS main train_face_recognition
   DESTINATION lib/${PROJECT_NAME})
