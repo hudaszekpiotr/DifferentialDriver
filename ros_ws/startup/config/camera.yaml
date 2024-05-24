@@ -7,3 +7,4 @@ v4l2_camera_node:
     exposure_dynamic_framerate: True
     image_stabilization: True
     time_per_frame: [1, 15]
+    camera_info_url: 'package://startup/config/camera_calibration.yaml'

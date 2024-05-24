@@ -360,6 +360,12 @@ def generate_launch_description():
         parameters=[camera_config],
     )
 
+    image_detector_node = Node(
+        package='image_detector_cpp',
+        name='image_detector_node',
+        executable='main',
+    )
+
     cliff_sensor_node = Node(
         package='cliff_sensor',
         name='cliff_sensor_node',
@@ -415,7 +421,8 @@ def generate_launch_description():
     ld.add_action(teleop_twist_joy_node)
     ld.add_action(robot_state_publisher_node)
     #ld.add_action(screen_node)
-    #ld.add_action(camera_node)
+    ld.add_action(camera_node)
+    ld.add_action(image_detector_node)
     #ld.add_action(cliff_sensor_node)
     #ld.add_action(cliff_sensor_node_cpp)
     #ld.add_action(ultrasonic_sensor_node)

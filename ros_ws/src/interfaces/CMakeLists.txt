@@ -15,6 +15,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/WheelsVelocities.msg"
+  "srv/LabelFace.srv"
  )
 
 if(BUILD_TESTING)
